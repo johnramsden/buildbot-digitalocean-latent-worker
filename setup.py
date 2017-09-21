@@ -53,4 +53,6 @@ setup(
         [buildbot.worker]
         digitalocean_worker = buildbot_digitalocean_worker:buildbot_digitalocean_worker
     """,
+
+    install_requires=['python-digitalocean'],
 )
