@@ -12,3 +12,6 @@ venv/
 # For tox and pytest
 .tox
 .cache
+
+buildbot/master/*
+!buildbot/master/*.sample
