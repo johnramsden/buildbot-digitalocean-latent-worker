@@ -17,11 +17,12 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
     instance = image = None
 
     def __init__(self, name, password, image, api_token, region=None,
-                 ssh_key=None, size_slug=None, backups=False, user_data=None, **kwargs):
+                 ssh_key_name=None, size_slug='512mb', backups=False, user_data=None, **kwargs):
 
         AbstractLatentWorker.__init__(self, name, password, **kwargs)
 
         self.api_token = api_token
+        self.do_manager = digitalocean.Manager(token=self.api_token)
 
         usable_region = self._get_available_region(region)
         if usable_region is not None:
@@ -32,33 +33,89 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
 
         self.name = name
         self.password = password
-        self.image = image
+        self.image = self.get_image(image)
         self.size_slug = size_slug
         self.backups = backups
-        self.user_data = user_data
-        self.ssh_key = ssh_key
 
-    def get_image(self):
-        if self.image is not None:
-            image = self.image
+        if ssh_key_name is None:
+            self.ssh_key = None
         else:
-            raise ValueError('no available images match constraints')
+            self.ssh_key = self._get_ssh_key(ssh_key_name)
 
-        '''
-        TODO: Should I return any image if none specified?
-        See: https://github.com/buildbot/buildbot/blob/cccd4d6990a1b02fc4653361744eafed0dcaa973/master/buildbot/worker/ec2.py#L331
-        '''
+
+        if user_data is None:
+            self.user_data = ""
+        else:
+            self.user_data = user_data
+
+    def get_image(self, image_id=None):
+        # if self.image is not None:
+        #     image = self.image
+        # else:
+        image = None
+
+        avail_images = self.do_manager.get_all_images()
+
+        for i in avail_images:
+            if i.slug == image_id:
+                image = i
+                log.msg("Found image:", image_id)
+                break
+
+        if image is None:
+            raise ValueError("No image ", image_id, " available")
 
         return image
+
+    """
+    Note, Doesn't work, cannot get image using image ID
+    """
+    # def _image_exists(self, image_id):
+    #     '''
+    #     Note, Doesn't work, cannot get image using image ID
+    #     '''
+    #     exists = False
+    #
+    #     avail_images = self.do_manager.get_all_images()
+    #
+    #     for image in avail_images:
+    #         pimage = self.do_manager.get_image(image_id)
+    #         print(pimage)
+    #         if image.slug == image_id:
+    #             exists = True
+    #             break
+    #
+    #     return exists
 
 
 
     def start_instance(self, build):
-        if self.instance is not None:
-            raise ValueError('instance active')
+        # if self.instance is not None:
+        #     raise ValueError('instance active')
+        # else:
+            self._start_instance()
 
     def _start_instance(self):
-        image = self.get_image()
+        droplet = digitalocean.Droplet(token=self.api_token,
+                                       name=self.name,
+                                       region=self.region,
+                                       image=self.image.slug,
+                                       size_slug=self.size_slug,
+                                       backups=self.backups,
+                                       #ssh_keys=self.ssh_key,
+                                       user_data=self.user_data)
+        droplet.create()
+
+        actions = droplet.get_actions()
+
+        status = "in-progress"
+
+        while status == "in-progress":
+            for action in actions:
+                action.load()
+                # Once it shows complete, droplet is up and running
+                status = action.status
+                print(status)
 
     def stop_instance(self):
         print("Stopping instance.")
@@ -93,63 +150,66 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
 
         return available_region
 
-    def add_ssh_key(self, path, key_name):
-        manager = digitalocean.Manager(token=self.api_token)
+    def _get_ssh_key(self, key_name):
+        key = None
+        manager = self.do_manager
         keys = manager.get_all_sshkeys()
         for k in keys:
             if k.name == key_name:
-                raise Exception("Key ", key_name, "already exists, use another id")
+                key = manager.get_ssh_key(k.id)
+                log.msg("Found ssh key:", k.name)
 
-        #print(manager.get_ssh_key("2213846"))
+        if key is None:
+            raise Exception("Key ", key_name, "doesn't exist")
 
+        return key
+
+        #
         # user_ssh_key = open(path).read()
         # key = SSHKey(token=self.api_token,
-        #               name=key_name,
-        #               public_key=user_ssh_key)
+        #              name=key_name,
+        #              public_key=user_ssh_key)
         # key.create()
 
-def create_droplet():
-    # user_ssh_key = open('/home/john/.ssh/id_ssh_rsa.pub').read()
-    # key = SSHKey(token=my_api_token,
-    #              name='chin_id',
-    #              public_key=user_ssh_key)
-    # key.create()
+    # def _create_droplet(self):
+    #     return digitalocean.Droplet(token=self.api_token,
+    #                                    name=self.name,
+    #                                    region=self.region,
+    #                                    image=self.image,
+    #                                    size_slug=self.size_slug,
+    #                                    backups=self.backups,
+    #                                    # ssh_keys=self.ssh_key,
+    #                                    user_data=self.user_data)
 
 
-
-    droplet = digitalocean.Droplet(token=my_api_token,
-                                   name='Buildbot',
-                                   region='sfo1',
-                                   image='ubuntu-16-04-x64',
-                                   size_slug='512mb',
-                                   backups=False,
-                                   ssh_keys=keys,
-                                   user_data="""
-                                    #cloud-config
-
-                                    runcmd:
-                                      - apt-get update
-                                      - apt-get install -y python3-pip python3-venv python3-setuptools
-                                      - apt-get install -y git
-                                      - addgroup --system buildbot
-                                      - adduser buildbot --system --ingroup buildbot --shell /bin/bash
-                                      - sudo --user buildbot python3 -m venv /home/buildbot/venv
-                                      - sudo -H --user buildbot /home/buildbot/venv/bin/pip install --upgrade pip
-                                      - sudo -H --user buildbot /home/buildbot/venv/bin/pip install --upgrade setuptools-trial
-                                      - sudo -H --user buildbot /home/buildbot/venv/bin/pip install --upgrade buildbot-worker
-                                      - mkdir -p /opt/builbotdata
-                                      - git clone https://github.com/johnramsden/bez /opt/builbotdata/bez
-                                   """)
-    droplet.create()
 
     #- sudo -H --user buildbot /home/buildbot/venv/bin/buildbot-worker create-worker worker localhost example-worker pass
 
 def main():
     log.startLogging(sys.stdout)
-    do_latent_worker = DigitalOceanLatentWorker("Bob", "pass", "image", password.digitalocean_api_key)
+    do_latent_worker = DigitalOceanLatentWorker("Bippo", "pass", "ubuntu-16-04-x64",
+                                                password.digitalocean_api_key,
+                                                ssh_key_name="chin_id")
     #do_latent_worker.start_instance(False)
-    do_latent_worker.add_ssh_key("pip", "chin_id")
+    do_latent_worker.start_instance(True)
 
 if __name__ == "__main__":
     # execute only if run as a script
     main()
+
+    """
+    #cloud-config
+
+    runcmd:
+      - apt-get update
+      - apt-get install -y python3-pip python3-venv python3-setuptools
+      - apt-get install -y git
+      - addgroup --system buildbot
+      - adduser buildbot --system --ingroup buildbot --shell /bin/bash
+      - sudo --user buildbot python3 -m venv /home/buildbot/venv
+      - sudo -H --user buildbot /home/buildbot/venv/bin/pip install --upgrade pip
+      - sudo -H --user buildbot /home/buildbot/venv/bin/pip install --upgrade setuptools-trial
+      - sudo -H --user buildbot /home/buildbot/venv/bin/pip install --upgrade buildbot-worker
+      - mkdir -p /opt/builbotdata
+      - git clone https://github.com/johnramsden/bez /opt/builbotdata/bez
+   """
