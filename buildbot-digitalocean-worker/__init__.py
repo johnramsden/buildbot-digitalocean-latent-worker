@@ -1,6 +1,11 @@
 import digitalocean
 from digitalocean import SSHKey
 
+import os
+import sys
+
+from twisted.python import log
+
 from buildbot import config
 from buildbot.interfaces import LatentWorkerFailedToSubstantiate
 from buildbot.worker import AbstractLatentWorker
@@ -9,8 +14,10 @@ import password
 
 class DigitalOceanLatentWorker(AbstractLatentWorker):
 
+    instance = image = None
+
     def __init__(self, name, password, image, api_token, region=None,
-                 size_slug=None, backups=False, user_data=None, **kwargs):
+                 ssh_key=None, size_slug=None, backups=False, user_data=None, **kwargs):
 
         AbstractLatentWorker.__init__(self, name, password, **kwargs)
 
@@ -19,16 +26,39 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
         usable_region = self._get_available_region(region)
         if usable_region is not None:
             self.region = usable_region
-            print("Set region to:", self.region)
+            log.msg("Set region to:", self.region)
         else:
-            print("No regions available")
+            raise ValueError("No regions available")
 
         self.name = name
         self.password = password
         self.image = image
+        self.size_slug = size_slug
+        self.backups = backups
+        self.user_data = user_data
+        self.ssh_key = ssh_key
 
-    def start_instance(self):
-        print("Starting instance.")
+    def get_image(self):
+        if self.image is not None:
+            image = self.image
+        else:
+            raise ValueError('no available images match constraints')
+
+        '''
+        TODO: Should I return any image if none specified?
+        See: https://github.com/buildbot/buildbot/blob/cccd4d6990a1b02fc4653361744eafed0dcaa973/master/buildbot/worker/ec2.py#L331
+        '''
+
+        return image
+
+
+
+    def start_instance(self, build):
+        if self.instance is not None:
+            raise ValueError('instance active')
+
+    def _start_instance(self):
+        image = self.get_image()
 
     def stop_instance(self):
         print("Stopping instance.")
@@ -59,12 +89,24 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
                     available_region = None
 
         if available_region is None:
-            print("Region", region, "was unavailable.")
+            raise ValueError("Region", region, "was unavailable.")
 
         return available_region
 
+    def add_ssh_key(self, path, key_name):
+        manager = digitalocean.Manager(token=self.api_token)
+        keys = manager.get_all_sshkeys()
+        for k in keys:
+            if k.name == key_name:
+                raise Exception("Key ", key_name, "already exists, use another id")
 
+        #print(manager.get_ssh_key("2213846"))
 
+        # user_ssh_key = open(path).read()
+        # key = SSHKey(token=self.api_token,
+        #               name=key_name,
+        #               public_key=user_ssh_key)
+        # key.create()
 
 def create_droplet():
     # user_ssh_key = open('/home/john/.ssh/id_ssh_rsa.pub').read()
@@ -72,8 +114,8 @@ def create_droplet():
     #              name='chin_id',
     #              public_key=user_ssh_key)
     # key.create()
-    manager = digitalocean.Manager(token=my_api_token)
-    keys = manager.get_all_sshkeys()
+
+
 
     droplet = digitalocean.Droplet(token=my_api_token,
                                    name='Buildbot',
@@ -103,7 +145,10 @@ def create_droplet():
     #- sudo -H --user buildbot /home/buildbot/venv/bin/buildbot-worker create-worker worker localhost example-worker pass
 
 def main():
+    log.startLogging(sys.stdout)
     do_latent_worker = DigitalOceanLatentWorker("Bob", "pass", "image", password.digitalocean_api_key)
+    #do_latent_worker.start_instance(False)
+    do_latent_worker.add_ssh_key("pip", "chin_id")
 
 if __name__ == "__main__":
     # execute only if run as a script
