@@ -5,7 +5,7 @@ from buildbot import config
 from buildbot.interfaces import LatentWorkerFailedToSubstantiate
 from buildbot.worker import AbstractLatentWorker
 from buildbot.worker_transition import reportDeprecatedWorkerNameUsage
-
+import password
 
 class DigitalOceanLatentWorker(AbstractLatentWorker):
 
@@ -16,25 +16,16 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
 
         self.api_token = api_token
 
-        if region is None:
-            usable_region = self._get_available_region()
-            if usable_region is not None:
-                self.region = usable_region
-                print("Set region to:", self.region)
-            else:
-                print("No regions available")
+        usable_region = self._get_available_region(region)
+        if usable_region is not None:
+            self.region = usable_region
+            print("Set region to:", self.region)
         else:
-            self.set_region(region)
+            print("No regions available")
 
         self.name = name
         self.password = password
         self.image = image
-
-
-    def set_region(self, region):
-        do_region = digitalocean.Region(token=self.api_token)
-
-        region_data = region.get_data("/v2/regions")
 
     def start_instance(self):
         print("Starting instance.")
@@ -42,7 +33,7 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
     def stop_instance(self):
         print("Stopping instance.")
 
-    def _get_available_region(self):
+    def _get_available_region(self, region=None):
         available_region = None
         do_region = digitalocean.Region(token=self.api_token)
 
@@ -50,17 +41,25 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
 
         for r in region_data.get('regions'):
             if r is not None:
-                """Default to region nyc1 if unset"""
-                if r['slug'] is 'nyc1':
+                """Default to region specified if unset"""
+                if r['slug'] is region:
                     if r['available'] is True:
                         available_region = r['slug']
                     else:
                         available_region = None
 
-                """If nyc1 unavailable, keep looking for available"""
-                if available_region is None:
+                """
+                If region unavailable, keep looking for available if region wasn't specified.
+                If region was specified and unavailable, print error 
+                """
+                if region is None:
                     if r['available'] is True:
                         available_region = r['slug']
+                else:
+                    available_region = None
+
+        if available_region is None:
+            print("Region", region, "was unavailable.")
 
         return available_region
 
@@ -104,9 +103,7 @@ def create_droplet():
     #- sudo -H --user buildbot /home/buildbot/venv/bin/buildbot-worker create-worker worker localhost example-worker pass
 
 def main():
-    my_api_token=''
-
-    do_latent_worker = DigitalOceanLatentWorker("Bob", "pass", "image", my_api_token)
+    do_latent_worker = DigitalOceanLatentWorker("Bob", "pass", "image", password.digitalocean_api_key)
 
 if __name__ == "__main__":
     # execute only if run as a script
