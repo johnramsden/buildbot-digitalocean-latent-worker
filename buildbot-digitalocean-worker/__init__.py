@@ -17,7 +17,7 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
     instance = image = None
 
     def __init__(self, name, password, image, api_token, region=None,
-                 ssh_key_name=None, size_slug='512mb', backups=False, user_data=None, **kwargs):
+                 ssh_keys=None, size_slug='512mb', backups=False, user_data=None, **kwargs):
 
         AbstractLatentWorker.__init__(self, name, password, **kwargs)
 
@@ -37,10 +37,10 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
         self.size_slug = size_slug
         self.backups = backups
 
-        if ssh_key_name is None:
-            self.ssh_key = None
+        if ssh_keys is None:
+            self.ssh_keys = None
         else:
-            self.ssh_key = self._get_ssh_key(ssh_key_name)
+            self.ssh_keys = self._get_ssh_keys(ssh_keys)
 
 
         if user_data is None:
@@ -102,7 +102,7 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
                                        image=self.image.slug,
                                        size_slug=self.size_slug,
                                        backups=self.backups,
-                                       #ssh_keys=self.ssh_key,
+                                       ssh_keys=self.ssh_keys,
                                        user_data=self.user_data)
         droplet.create()
 
@@ -150,19 +150,20 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
 
         return available_region
 
-    def _get_ssh_key(self, key_name):
-        key = None
+    def _get_ssh_keys(self, key_names):
+        keys = list()
         manager = self.do_manager
-        keys = manager.get_all_sshkeys()
-        for k in keys:
-            if k.name == key_name:
-                key = manager.get_ssh_key(k.id)
+        do_keys = manager.get_all_sshkeys()
+        for k in do_keys:
+            if k.name in key_names:
+                keys.append(manager.get_ssh_key(k.id))
                 log.msg("Found ssh key:", k.name)
 
-        if key is None:
-            raise Exception("Key ", key_name, "doesn't exist")
+        # Check if keys is empty
+        if not keys:
+            raise Exception("One or more keys couldn't be found ", *key_names)
 
-        return key
+        return keys
 
         #
         # user_ssh_key = open(path).read()
@@ -189,7 +190,7 @@ def main():
     log.startLogging(sys.stdout)
     do_latent_worker = DigitalOceanLatentWorker("Bippo", "pass", "ubuntu-16-04-x64",
                                                 password.digitalocean_api_key,
-                                                ssh_key_name="chin_id")
+                                                ssh_keys=["chin_id"])
     #do_latent_worker.start_instance(False)
     do_latent_worker.start_instance(True)
 

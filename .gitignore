@@ -15,4 +15,3 @@ venv/
 
 buildbot/master/*
 !buildbot/master/*.sample
-/buildbot-digitalocean-worker/password.py
