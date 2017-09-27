@@ -16,7 +16,7 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
 
     instance = image = None
 
-    def __init__(self, name, password, image, api_token, region=None,
+    def __init__(self, name, password, droplet_image, api_token, region=None,
                  ssh_keys=None, size_slug='512mb', backups=False, user_data=None, **kwargs):
 
         AbstractLatentWorker.__init__(self, name, password, **kwargs)
@@ -33,7 +33,8 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
 
         self.name = name
         self.password = password
-        self.image = self.get_image(image)
+        self.droplet_image = None
+        self.droplet_image = self.get_do_image(image_slug=droplet_image)
         self.size_slug = size_slug
         self.backups = backups
 
@@ -47,77 +48,87 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
         else:
             self.user_data = user_data
 
-    def get_image(self, image_id=None):
-        # if self.image is not None:
-        #     image = self.image
-        # else:
-        image = None
+        self.droplet = self._configure_droplet()
 
-        avail_images = self.do_manager.get_all_images()
+    def _matching_image(self, droplet_slug):
+        """
+        Takes slug looking to match, returns None if no match, or the image matched
+        :param droplet_slug:
+        :param slug_image_pair:
+        :return:
+        """
+        droplet_image = None
+        for i in [(i.slug, i) for i in self.do_manager.get_all_images()]:
+            if droplet_slug==i[0]:
+                droplet_image = i[1]
 
-        for i in avail_images:
-            if i.slug == image_id:
-                image = i
-                log.msg("Found image:", image_id)
-                break
+        return droplet_image
 
-        if image is None:
-            raise ValueError("No image ", image_id, " available")
+    def get_do_image(self, image_slug=None):
+        """
+        Set default to current image if no id given, else ask for id if no image
+        :param image_id:
+        :return: image
+        """
+        droplet_image = None
 
-        return image
+        if image_slug is None:
+            if self.droplet_image is not None:
+                droplet_slug = self.droplet_image.slug
+            else:
+                raise ValueError("No image currently set or requested.")
+        else:
+            droplet_slug = image_slug
 
-    """
-    Note, Doesn't work, cannot get image using image ID
-    """
-    # def _image_exists(self, image_id):
-    #     '''
-    #     Note, Doesn't work, cannot get image using image ID
-    #     '''
-    #     exists = False
-    #
-    #     avail_images = self.do_manager.get_all_images()
-    #
-    #     for image in avail_images:
-    #         pimage = self.do_manager.get_image(image_id)
-    #         print(pimage)
-    #         if image.slug == image_id:
-    #             exists = True
-    #             break
-    #
-    #     return exists
+        droplet_image = self._matching_image(droplet_slug)
+        if droplet_image is None:
+            raise ValueError("Requested image not in DigitalOcean images.")
 
+        log.msg("Found image:", droplet_image.slug)
+        return droplet_image
+
+    def _configure_droplet(self):
+        return digitalocean.Droplet(token=self.api_token,
+                                    name=self.name,
+                                    region=self.region,
+                                    image=self.droplet_image.slug,
+                                    size_slug=self.size_slug,
+                                    backups=self.backups,
+                                    ssh_keys=self.ssh_keys,
+                                    user_data=self.user_data)
 
 
     def start_instance(self, build):
-        # if self.instance is not None:
-        #     raise ValueError('instance active')
-        # else:
-            self._start_instance()
+        if self.instance is not None:
+            raise ValueError('instance active')
+
+        return self._start_instance()
 
     def _start_instance(self):
-        droplet = digitalocean.Droplet(token=self.api_token,
-                                       name=self.name,
-                                       region=self.region,
-                                       image=self.image.slug,
-                                       size_slug=self.size_slug,
-                                       backups=self.backups,
-                                       ssh_keys=self.ssh_keys,
-                                       user_data=self.user_data)
-        droplet.create()
+        ret_success = True
 
-        actions = droplet.get_actions()
+        self.droplet.create()
+        actions = self.droplet.get_actions()
 
         status = "in-progress"
-
         while status == "in-progress":
             for action in actions:
                 action.load()
-                # Once it shows complete, droplet is up and running
+                # Once status shows complete, droplet is up and running
                 status = action.status
-                print(status)
+
+        if status != "completed":
+            ret_success = False
+            log.msg("Instance failed to start with message: ", status)
+        else:
+            log.msg("Started image ", self.droplet_image.slug, " successfully.")
+
+        return ret_success
 
     def stop_instance(self):
         print("Stopping instance.")
+        print(self.droplet.shutdown())
+        self.droplet.destroy()
 
     def _get_available_region(self, region=None):
         available_region = None
@@ -185,11 +196,12 @@ def main():
       - git clone https://github.com/johnramsden/bez /opt/builbotdata/bez
    """
     log.startLogging(sys.stdout)
-    do_latent_worker = DigitalOceanLatentWorker("Bip", "pass", "ubuntu-16-04-x64",
+    do_latent_worker = DigitalOceanLatentWorker("Bop", "pass", "ubuntu-16-04-x64",
                                                 password.digitalocean_api_key, ssh_keys=['chin_id'],
                                                 user_data=start_commands)
 
     do_latent_worker.start_instance(True)
+    do_latent_worker.stop_instance()
 
 if __name__ == "__main__":
     # execute only if run as a script
