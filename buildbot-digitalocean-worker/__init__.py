@@ -38,10 +38,9 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
         self.backups = backups
 
         if ssh_keys is None:
-            self.ssh_keys = None
+            self.ssh_keys = []
         else:
             self.ssh_keys = self._get_ssh_keys(ssh_keys)
-
 
         if user_data is None:
             self.user_data = ""
@@ -150,14 +149,15 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
 
         return available_region
 
+
     def _get_ssh_keys(self, key_names):
-        keys = list()
-        manager = self.do_manager
-        do_keys = manager.get_all_sshkeys()
-        for k in do_keys:
-            if k.name in key_names:
-                keys.append(manager.get_ssh_key(k.id))
-                log.msg("Found ssh key:", k.name)
+        """
+        Look for matches to any keys from list key_names.
+        :param key_names: List of wanted keys
+        :return keys: A list of key matches on digitalocean
+        """
+        keys = [self.do_manager.get_ssh_key(k.id)
+                for k in self.do_manager.get_all_sshkeys() if k.name in key_names]
 
         # Check if keys is empty
         if not keys:
@@ -165,40 +165,10 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
 
         return keys
 
-        #
-        # user_ssh_key = open(path).read()
-        # key = SSHKey(token=self.api_token,
-        #              name=key_name,
-        #              public_key=user_ssh_key)
-        # key.create()
-
-    # def _create_droplet(self):
-    #     return digitalocean.Droplet(token=self.api_token,
-    #                                    name=self.name,
-    #                                    region=self.region,
-    #                                    image=self.image,
-    #                                    size_slug=self.size_slug,
-    #                                    backups=self.backups,
-    #                                    # ssh_keys=self.ssh_key,
-    #                                    user_data=self.user_data)
-
-
-
     #- sudo -H --user buildbot /home/buildbot/venv/bin/buildbot-worker create-worker worker localhost example-worker pass
 
 def main():
-    log.startLogging(sys.stdout)
-    do_latent_worker = DigitalOceanLatentWorker("Bippo", "pass", "ubuntu-16-04-x64",
-                                                password.digitalocean_api_key,
-                                                ssh_keys=["chin_id"])
-    #do_latent_worker.start_instance(False)
-    do_latent_worker.start_instance(True)
-
-if __name__ == "__main__":
-    # execute only if run as a script
-    main()
-
-    """
+    start_commands = """
     #cloud-config
 
     runcmd:
@@ -214,3 +184,13 @@ if __name__ == "__main__":
       - mkdir -p /opt/builbotdata
       - git clone https://github.com/johnramsden/bez /opt/builbotdata/bez
    """
+    log.startLogging(sys.stdout)
+    do_latent_worker = DigitalOceanLatentWorker("Bip", "pass", "ubuntu-16-04-x64",
+                                                password.digitalocean_api_key, ssh_keys=['chin_id'],
+                                                user_data=start_commands)
+
+    do_latent_worker.start_instance(True)
+
+if __name__ == "__main__":
+    # execute only if run as a script
+    main()
