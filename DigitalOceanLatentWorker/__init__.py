@@ -4,20 +4,23 @@ from digitalocean import SSHKey
 import os
 import sys
 
+import password
+import workers
+
 from twisted.python import log
 
 from buildbot import config
 from buildbot.interfaces import LatentWorkerFailedToSubstantiate
 from buildbot.worker import AbstractLatentWorker
 from buildbot.worker_transition import reportDeprecatedWorkerNameUsage
-import password
 
 class DigitalOceanLatentWorker(AbstractLatentWorker):
 
     instance = image = None
 
     def __init__(self, name, password, droplet_image, api_token, region=None,
-                 ssh_keys=None, size_slug='512mb', backups=False, user_data=None, **kwargs):
+                 ssh_keys=None, size_slug='512mb', backups=False,
+                 user_data=None, **kwargs):
 
         AbstractLatentWorker.__init__(self, name, password, **kwargs)
 
@@ -176,32 +179,15 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
 
         return keys
 
-    #- sudo -H --user buildbot /home/buildbot/venv/bin/buildbot-worker create-worker worker localhost example-worker pass
-
 def main():
-    start_commands = """
-    #cloud-config
-
-    runcmd:
-      - apt-get update
-      - apt-get install -y python3-pip python3-venv python3-setuptools
-      - apt-get install -y git
-      - addgroup --system buildbot
-      - adduser buildbot --system --ingroup buildbot --shell /bin/bash
-      - sudo --user buildbot python3 -m venv /home/buildbot/venv
-      - sudo -H --user buildbot /home/buildbot/venv/bin/pip install --upgrade pip
-      - sudo -H --user buildbot /home/buildbot/venv/bin/pip install --upgrade setuptools-trial
-      - sudo -H --user buildbot /home/buildbot/venv/bin/pip install --upgrade buildbot-worker
-      - mkdir -p /opt/builbotdata
-      - git clone https://github.com/johnramsden/bez /opt/builbotdata/bez
-   """
     log.startLogging(sys.stdout)
-    do_latent_worker = DigitalOceanLatentWorker("Bop", "pass", "ubuntu-16-04-x64",
-                                                password.digitalocean_api_key, ssh_keys=['chin_id'],
-                                                user_data=start_commands)
 
-    do_latent_worker.start_instance(True)
-    do_latent_worker.stop_instance()
+    dolw = DigitalOceanLatentWorker(
+        "bez-worker", password.bez_worker_pass,
+        "ubuntu-16-04-x64", password.digitalocean_api_key,
+        ssh_keys=['chin_id'], user_data=workers.do_worker_user_data['ubuntu']['user_data'])
+
+    dolw.start_instance(True)
 
 if __name__ == "__main__":
     # execute only if run as a script

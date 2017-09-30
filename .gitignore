@@ -15,4 +15,5 @@ venv/
 
 buildbot/master/*
 !buildbot/master/master.cfg
+!buildbot/master/workers.py
 !buildbot/master/*.sample

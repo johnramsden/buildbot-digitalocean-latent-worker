@@ -11,6 +11,7 @@ certifi==2017.7.27.1
 chardet==3.0.4
 constantly==15.1.0
 decorator==4.1.2
+-e git+git@github.com:johnramsden/buildbot-digitalocean-latent-worker.git@d2b2026c35f474cee3af5af80244b211732ef561#egg=digitalocean_latent_worker
 future==0.16.0
 hyperlink==17.3.1
 idna==2.6
@@ -27,7 +28,7 @@ SQLAlchemy==1.1.14
 sqlalchemy-migrate==0.11.0
 sqlparse==0.2.3
 Tempita==0.5.2
-Twisted==17.5.0
+Twisted==17.9.0
 txaio==2.8.2
 urllib3==1.22
-zope.interface==4.4.2
+zope.interface==4.4.3

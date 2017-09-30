@@ -1,1 +1,0 @@
-../buildbot/master/password.py

@@ -1,22 +1,21 @@
 """Buildbot module for latent digitalocean workers.
 
 See:
-https://github.com/johnramsden/buildbot-digitalocean-worker
+https://github.com/johnramsden/buildbot-digitalocean-latent-worker
 """
 
 # Prefer setuptools over distutils
-from __future__ import setup
+from setuptools import setup
 
 setup(
-    name='buildbot-digitalocean-worker',
+    name='digitalocean-latent-worker',
 
     # Versions should comply with PEP440.
     version='0.0.1',
 
     description='Buildbot module for latent digitalocean workers',
-    long_description=long_description,
 
-    url='https://github.com/johnramsden/buildbot-digitalocean-worker',
+    url='https://github.com/johnramsden/buildbot-digitalocean-latent-worker',
 
     author='John Ramsden',
     author_email='johnramsden@riseup.net',
@@ -47,12 +46,12 @@ setup(
         'Programming Language :: Python :: 3.6',
     ],
 
-    packages=['buildbot_digitalocean_worker'],
+    packages=['DigitalOceanLatentWorker'],
 
-    entry_points="""
-        [buildbot.worker]
-        digitalocean_worker = buildbot_digitalocean_worker:buildbot_digitalocean_worker
-    """,
+    entry_points={
+        'buildbot.worker':
+            ['DigitalOceanLatentWorker=DigitalOceanLatentWorker:DigitalOceanLatentWorker']
+    },
 
     install_requires=['python-digitalocean'],
 )
