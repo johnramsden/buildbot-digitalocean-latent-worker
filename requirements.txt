@@ -11,7 +11,7 @@ certifi==2017.7.27.1
 chardet==3.0.4
 constantly==15.1.0
 decorator==4.1.2
--e git+git@github.com:johnramsden/buildbot-digitalocean-latent-worker.git@d2b2026c35f474cee3af5af80244b211732ef561#egg=digitalocean_latent_worker
+-e git+git@github.com:johnramsden/buildbot-digitalocean-latent-worker.git@ee7c294ec0cfd071a7e1d59daba8194aa3039ddf#egg=digitalocean_latent_worker
 future==0.16.0
 hyperlink==17.3.1
 idna==2.6
