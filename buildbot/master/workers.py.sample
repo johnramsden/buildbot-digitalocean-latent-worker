@@ -1,0 +1,63 @@
+import password
+
+# Dictionary containing digitalocean worker attributes.
+do_worker = {
+    "ubuntu": {
+        "system_packages": [
+                "python3-pip", "python3-venv", "python3-setuptools",
+                 "git", "cmake", "zfs", "libzfslinux-dev", "clang", "pkg-config"
+            ],
+        "buildbot": {
+            "user": "buildbot",
+            "group": "buildbot",
+            "directory": "/home/buildbot",
+            "worker": {
+                "name": "example-worker",
+                "master": "buildbot.ramsdenj.com",
+                "password": password.bez_worker_pass,
+                "admin_info": "John Ramsden <example.email@email.ca>",
+                "host_info": "Example Ubuntu 16.04 buildbot worker"
+            },
+            "venv_packages": [
+                "pip", "setuptools-trial", "buildbot-worker"
+            ]
+        },
+    }
+}
+
+# Example cloud config how to create a digital ocean host with required set up.
+do_worker_user_data = {
+    "ubuntu": {
+        "user_data": """
+                #cloud-config
+
+                package_upgrade: true
+                packages: {system_packages}
+                users:
+                    - name: {buildbot_user}
+
+                runcmd:
+                    - [sudo, "--user", {buildbot_user}, python3, "-m", venv, {buildbot_directory}/venv]
+                    - [sudo, "-H", "--user", {buildbot_user}, 
+                        {buildbot_directory}/venv/bin/pip, install, --upgrade, {pip_packages}]
+                    - [sudo, "-H", "--user", {buildbot_user}, {buildbot_directory}/venv/bin/buildbot-worker, 
+                        create-worker, "--allow-shutdown=file", {buildbot_directory}/worker, {buildbot_master_domain}, {buildbot_worker}, 
+                        {buildbot_password}]
+                    - [sudo, "-H", "--user", {buildbot_user}, sh, "-c", 'echo "{admin_info}" > {buildbot_directory}/worker/info/admin']
+                    - [sudo, "-H", "--user", {buildbot_user}, sh, "-c", 'echo "{host_info}" > {buildbot_directory}/worker/info/host']
+                    - [sudo, "-H", "--user", {buildbot_user}, {buildbot_directory}/venv/bin/buildbot-worker, start,
+                        {buildbot_directory}/worker]
+            """.format(
+            system_packages="[{}]".format(", ".join(do_worker['ubuntu']['system_packages'])),
+            buildbot_user=do_worker['ubuntu']['buildbot']['user'],
+            buildbot_group=do_worker['ubuntu']['buildbot']['group'],
+            buildbot_directory=do_worker['ubuntu']['buildbot']['directory'],
+            buildbot_master_domain=do_worker['ubuntu']['buildbot']['worker']['master'],
+            buildbot_worker=do_worker['ubuntu']['buildbot']['worker']['name'],
+            pip_packages=', '.join(do_worker['ubuntu']['buildbot']['venv_packages']),
+            buildbot_password=do_worker['ubuntu']['buildbot']['worker']['password'],
+            admin_info=do_worker['ubuntu']['buildbot']['worker']['admin_info'],
+            host_info=do_worker['ubuntu']['buildbot']['worker']['host_info']
+        )
+    }
+}
