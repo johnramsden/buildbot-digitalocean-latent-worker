@@ -4,9 +4,6 @@ from digitalocean import SSHKey
 import os
 import sys
 
-import password
-import workers
-
 from twisted.python import log
 
 from buildbot import config
@@ -129,9 +126,31 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
         return ret_success
 
     def stop_instance(self):
-        print("Stopping instance.")
-        print(self.droplet.shutdown())
-        self.droplet.destroy()
+        ret_success = True
+        log.msg("Starting instance termination sequence for ", self.name)
+
+        self.droplet.shutdown()
+
+        actions = self.droplet.get_actions()
+
+        status = "in-progress"
+        while status == "in-progress":
+            for action in actions:
+                action.load()
+                # Once status shows complete, droplet shutdown
+                status = action.status
+
+        if status != "completed":
+            ret_success = False
+            log.msg("Instance failed to stop with message: ", status)
+        else:
+            log.msg("Stopped droplet ", self.name, " successfully.")
+
+        log.msg("Destroying droplet ", self.name)
+        if not self.droplet.destroy():
+            raise ValueError("Droplet failed to destroy")
+
+        return ret_success
 
     def _get_available_region(self, region=None):
         available_region = None
@@ -181,13 +200,6 @@ class DigitalOceanLatentWorker(AbstractLatentWorker):
 
 def main():
     log.startLogging(sys.stdout)
-
-    dolw = DigitalOceanLatentWorker(
-        "bez-worker", password.bez_worker_pass,
-        "ubuntu-16-04-x64", password.digitalocean_api_key,
-        ssh_keys=['chin_id'], user_data=workers.do_worker_user_data['ubuntu']['user_data'])
-
-    dolw.start_instance(True)
 
 if __name__ == "__main__":
     # execute only if run as a script

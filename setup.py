@@ -10,7 +10,6 @@ from setuptools import setup
 setup(
     name='digitalocean-latent-worker',
 
-    # Versions should comply with PEP440.
     version='0.0.1',
 
     description='Buildbot module for latent digitalocean workers',

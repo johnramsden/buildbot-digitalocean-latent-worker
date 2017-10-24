@@ -4,13 +4,18 @@
 
 from buildbot.plugins import worker, util, schedulers, changes, steps
 
+import sys
+
+from twisted.python import log
+
 import password
 import workers
 
 import DigitalOceanLatentWorker
 
-def create_worker():
-    print("Creating test worker")
+def main():
+    log.startLogging(sys.stdout)
+    log.msg("Creating test worker")
 
     bez_git_repo = 'https://{}{}@github.com/johnramsden/bez'.format(
         password.github_token, ":x-oauth-basic")
@@ -20,10 +25,11 @@ def create_worker():
         "ubuntu-16-04-x64", password.digitalocean_api_key,
         ssh_keys=['chin_id'], user_data=workers.do_worker_user_data['ubuntu']['user_data'])
 
-    dolw.start_instance(True)
+    if not dolw.start_instance(True):
+        raise ValueError("Failed to start DO droplet")
 
-def main():
-    create_worker()
+    if not dolw.stop_instance():
+        raise ValueError("Failed to stop DO droplet")
 
 if __name__ == "__main__":
     # execute only if run as a script
