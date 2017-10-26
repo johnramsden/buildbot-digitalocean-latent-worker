@@ -14,7 +14,7 @@ do_worker = {
             "worker": {
                 "name": "example-worker",
                 "master": "buildbot.ramsdenj.com",
-                "password": password.bez_worker_pass,
+                "password": password.bb_worker_pass,
                 "admin_info": "John Ramsden <example.email@email.ca>",
                 "host_info": "Example Ubuntu 16.04 buildbot worker"
             },

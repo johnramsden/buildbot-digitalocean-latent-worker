@@ -1,47 +1,36 @@
 Buildbot module for latent digitalocean workers
-=======================
+================================================
 
-Readme for buildbot module for latent digitalocean workers.
+``digitalocean-latent-worker`` is a `Buildbot <https://github.com/buildbot/buildbot>`_ plugin for creating latent DigitalOcean workers.
 
-Requirements:
-python-digitalocean
+DigitalOcean virtual machines can be created on the fly, and then destroyed when they are finished doing a build. Setup instructions can be customized with the ``user_data`` variable as `cloud-init <https://cloud-init.io/>`_ data, shell script, or any other type of setup data is supported by DigitalOcean.
 
----
+Using the DigitalOcean API
+--------------------------
 
-Development:
+Create an API token on DigitalOcean.
 
-Create virtualenv inside project:
-python -m venv venv
+The API key, an SSH key and other necessary setup data can be given to the initializer for the worker class.
 
-Activate venv:
-source venv/bin/activate
+It's reccomended to put all secret data into a ``password.py`` file so it can be kept separate from the rest of the files that might be committed to a repository.
 
-Install requirements:
-pip install -U python-digitalocean
+Examples
+^^^^^^^^
 
-Buildbot:
-source venv/bin/activate
-pip install -U 'buildbot[bundle]'
+Example sample files can be found in the `buildbot/master <buildbot/master>`_ directory.
 
-Save Requirements:
-pip freeze > requirements.txt
+Secrets in  ``password.py``::
 
----
+    digitalocean_api_key = "thisisafakeapikey"
+    bb_worker_pass = "example_pass"
 
-API:
+Configuration in ``master.cfg``::
 
-Create an API token
+    c = BuildmasterConfig = {}
 
-Setup user_data to run on the droplet. for example:
-
-#cloud-config
-
-runcmd:
-  - apt-get update
-  - apt-get install -y python-pip
-  - apt-get install -y git
-  - mkdir -p /opt/builbotdata
-  - git clone https://github.com/johnramsden/sample_app /opt/builbotdata/sample_app
-
-To get region info, run:
-curl -X GET https://api.digitalocean.com/v2/regions -H 'Authorization: Bearer <TOKEN>'
+    c['workers'] = [
+        worker.DigitalOceanLatentWorker(
+            "bb-worker", password.bb_worker_pass,
+            "ubuntu-16-04-x64", password.digitalocean_api_key,
+            ssh_keys=['ssh_id'], user_data=workers.do_worker_user_data)
+    ]

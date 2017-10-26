@@ -10,7 +10,7 @@ from setuptools import setup
 setup(
     name='digitalocean-latent-worker',
 
-    version='0.0.1',
+    version='0.0.2',
 
     description='Buildbot module for latent digitalocean workers',
 
@@ -52,5 +52,8 @@ setup(
             ['DigitalOceanLatentWorker=DigitalOceanLatentWorker:DigitalOceanLatentWorker']
     },
 
-    install_requires=['python-digitalocean'],
+    install_requires=[
+        'python-digitalocean'
+        'buildbot[bundle]'
+    ],
 )

@@ -25,15 +25,14 @@ c = BuildmasterConfig = {}
 # a Worker object, specifying a unique worker name and password.  The same
 # worker name and password must be configured on the worker.
 
-bez_git_repo = 'https://{}{}@github.com/johnramsden/bez'.format(
+bb_git_repo = 'https://{}{}@github.com/johnramsden/exampleproject/'.format(
     password.github_token, ":x-oauth-basic")
 
 c['workers'] = [
     worker.DigitalOceanLatentWorker(
-        "bez-worker", password.bez_worker_pass,
+        "bb-worker", password.bb_worker_pass,
         "ubuntu-16-04-x64", password.digitalocean_api_key,
-        ssh_keys=['chin_id'], user_data=workers.do_worker_user_data['ubuntu']['user_data'])
-
+        ssh_keys=['ssh_id'], user_data=workers.do_worker_user_data['ubuntu']['user_data'])
 ]
 
 # 'protocols' contains information about protocols which master will use for
@@ -50,7 +49,7 @@ c['protocols'] = {'pb': {'port': 9989}}
 
 c['change_source'] = []
 c['change_source'].append(changes.GitPoller(
-        bez_git_repo,
+        bb_git_repo,
         workdir='gitpoller-workdir', branch='master',
         pollinterval=50))
 
@@ -64,10 +63,10 @@ c['schedulers'].append(schedulers.SingleBranchScheduler(
                             name="all",
                             change_filter=util.ChangeFilter(branch='master'),
                             treeStableTimer=None,
-                            builderNames=["bez-builder"]))
+                            builderNames=["bb-builder"]))
 c['schedulers'].append(schedulers.ForceScheduler(
                             name="force",
-                            builderNames=["bez-builder"]))
+                            builderNames=["bb-builder"]))
 
 ####### BUILDERS
 
@@ -76,8 +75,8 @@ c['schedulers'].append(schedulers.ForceScheduler(
 # only take place on one worker.
 
 # Compile code
-bez_build_steps = [
-    steps.Git(repourl=bez_git_repo, mode='incremental'),
+bb_build_steps = [
+    steps.Git(repourl=bb_git_repo, mode='incremental'),
     steps.CMake(
             generator='Unix Makefiles',
             # definitions={
@@ -90,12 +89,12 @@ bez_build_steps = [
     steps.Compile(command=["make"]),
 ]
 
-factory = util.BuildFactory(bez_build_steps)
+factory = util.BuildFactory(bb_build_steps)
 
 c['builders'] = []
 c['builders'].append(
-    util.BuilderConfig(name="bez-builder",
-      workernames=["bez-worker"],
+    util.BuilderConfig(name="bb-builder",
+      workernames=["bb-worker"],
       factory=factory))
 
 ####### BUILDBOT SERVICES
