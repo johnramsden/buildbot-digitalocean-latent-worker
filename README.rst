@@ -1,6 +1,8 @@
 Buildbot module for latent digitalocean workers
 ================================================
 
+**NOTE: Work in progress, not ready for use.**
+
 ``digitalocean-latent-worker`` is a `Buildbot <https://github.com/buildbot/buildbot>`_ plugin for creating latent DigitalOcean workers.
 
 DigitalOcean virtual machines can be created on the fly, and then destroyed when they are finished doing a build. Setup instructions can be customized with the ``user_data`` variable as `cloud-init <https://cloud-init.io/>`_ data, shell script, or any other type of setup data is supported by DigitalOcean.
